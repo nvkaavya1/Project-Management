@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI Email Organizer</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--text:#1d2233;--mute:#6b7280;--line:#e3e6ef;--accent:#4f46e5;
+--c-action:#dc2626;--c-important:#d97706;--c-clubs:#2563eb;--c-news:#7c3aed;--c-junk:#6b7280;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12141c;--card:#1c1f2b;--text:#e8eaf2;--mute:#9aa0b4;--line:#2b3042;--accent:#8b86ff}}
+:root[data-theme="dark"]{--bg:#12141c;--card:#1c1f2b;--text:#e8eaf2;--mute:#9aa0b4;--line:#2b3042;--accent:#8b86ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header{padding:20px 20px 8px;max-width:1000px;margin:0 auto}
+h1{margin:0;font-size:22px}header p{margin:2px 0 0;color:var(--mute);font-size:14px}
+.wrap{max-width:1000px;margin:0 auto;padding:8px 20px 40px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:16px}
+@media(max-width:760px){.wrap{grid-template-columns:1fr}}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.tab{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:999px;padding:5px 11px;font-size:13px;cursor:pointer}
+.tab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px}
+.item{padding:11px 14px;border-bottom:1px solid var(--line);cursor:pointer;display:flex;gap:10px}
+.item:last-child{border-bottom:0}.item:hover,.item.sel{background:color-mix(in srgb,var(--accent) 9%,transparent)}
+.dot{width:10px;height:10px;border-radius:50%;margin-top:6px;flex:none}
+.item b{display:block;font-size:14px}.item span{color:var(--mute);font-size:13px}
+.badge{display:inline-block;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;color:#fff}
+.detail{padding:16px;position:sticky;top:12px;align-self:start}
+.detail h2{margin:8px 0 2px;font-size:17px}.meta{color:var(--mute);font-size:13px;margin-bottom:10px}
+.body{white-space:pre-wrap;border-left:3px solid var(--line);padding-left:10px;margin:10px 0}
+.why{font-size:13px;color:var(--mute);margin:8px 0}
+label{font-size:13px;font-weight:600;display:block;margin:12px 0 4px}
+textarea,input,select{width:100%;font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px}
+textarea{min-height:110px;resize:vertical}
+button.btn{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:8px 14px;font:inherit;cursor:pointer;margin-top:8px}
+button.btn.alt{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.empty{padding:30px;text-align:center;color:var(--mute)}
+details{margin-top:14px}summary{cursor:pointer;font-weight:600;font-size:14px}
+.row{display:grid;gap:6px}.note{font-size:12px;color:var(--mute);margin-top:6px}
+</style>
+</head>
+<body>
+<header>
+<h1>📬 AI Email Organizer</h1>
+<p>Prioritizes your inbox, separates junk and newsletters, and drafts replies. Click an email to see why it was sorted that way.</p>
+</header>
+<div class="wrap">
+<div>
+<div class="tabs" id="tabs"></div>
+<div class="card" id="list"></div>
+<details class="card" style="padding:12px 14px">
+<summary>Add your own email</summary>
+<div class="row">
+<label>From (name &lt;email&gt;)</label><input id="nf" placeholder="Dr. Smith &lt;smith@university.edu&gt;">
+<label>Subject</label><input id="ns" placeholder="Subject">
+<label>Message</label><textarea id="nb" placeholder="Paste the email text here"></textarea>
+<button class="btn" id="add">Organize it</button>
+</div>
+</details>
+</div>
+<div class="card detail" id="detail"><div class="empty">Select an email to see details.</div></div>
+</div>
+<script>
+var CATS={action:{n:"Needs Action",c:"var(--c-action)"},important:{n:"Important",c:"var(--c-important)"},clubs:{n:"Clubs & Events",c:"var(--c-clubs)"},news:{n:"Newsletters",c:"var(--c-news)"},junk:{n:"Junk",c:"var(--c-junk)"}};
+var emails=[
+{f:"Dr. Alvarez <alvarez@univ.edu>",s:"Midterm deadline moved to Friday",b:"Hi class, the project deadline has moved to this Friday at 5pm. Please submit on Canvas and reply to confirm you saw this."},
+{f:"Jordan Lee <jlee@acmecareers.com>",s:"Interview invitation – please schedule",b:"Hi Maya, we would love to interview you for the summer internship. Please reply with your availability this week so we can schedule a time."},
+{f:"Sigma Club <sigma@univ.edu>",s:"Meeting Thursday – RSVP",b:"Our club meeting is Thursday at 7pm in the student center. Please RSVP so we can order food."},
+{f:"Campus Daily <news@campusdaily.com>",s:"Your weekly digest",b:"This week on campus: top stories, events and more. Unsubscribe at any time."},
+{f:"PRIZE CENTER <win@free-prizes.biz>",s:"You are a WINNER! Claim your gift card",b:"Congratulations!! Claim your free gift card now. Verify your account and click here to claim your prize."},
+{f:"Ms. Patel (Advisor) <patel@univ.edu>",s:"Course registration advising",b:"Hi Maya, please book a short advising meeting before registration opens. Let me know what times work."},
+{f:"Treasurer <dues@sorority.org>",s:"Reminder: dues are due Nov 20",b:"Action required: spring dues are due by Nov 20. Please pay online and reply once complete."},
+{f:"BookShop <deals@bookshop.com>",s:"40% off sale ends tonight",b:"Huge sale! 40% off all textbooks. Unsubscribe to stop receiving promotions."},
+{f:"Dr. Alvarez <alvarez@univ.edu>",s:"Extra credit opportunity",b:"Students who attend the guest lecture on Monday can earn extra credit. Sign in at the door."},
+{f:"Jordan Lee <jlee@acmecareers.com>",s:"Re: internship onboarding paperwork",b:"Please complete the onboarding forms by next Wednesday. Reply if you have questions."},
+{f:"Sigma Club <sigma@univ.edu>",s:"Fundraiser ideas",b:"We are collecting ideas for the spring fundraiser event. Share your thoughts at the next meeting."},
+{f:"Library <noreply@lib.univ.edu>",s:"Your book is overdue",b:"Your borrowed book is overdue. Please return it to avoid fees."}
+];
+var ROLE=/(dr\.|prof|professor|advisor|advising|recruit|careers|supervisor|dean)/i;
+var memory={};var view="all",sel=null;
+function sender(f){return (f.match(/<([^>]+)>/)||[0,f])[1].toLowerCase()}
+function nameOf(f){return f.replace(/<.*>/,"").trim()||f}
+function classify(e){
+var t=(e.f+" "+e.s+" "+e.b).toLowerCase(),why;
+if(memory[sender(e.f)])return{cat:memory[sender(e.f)],why:"You moved this sender here before, so I remembered it."};
+if(/winner|claim your|free gift|prize|verify your account|crypto|click here to claim/.test(t))return{cat:"junk",why:"Looks like a scam: prize or gift-card language and requests to verify an account."};
+if(/unsubscribe|newsletter|weekly digest|% off|sale ends|promotion/.test(t))return{cat:"news",why:"Bulk or promotional wording such as an unsubscribe link or a sale."};
+var act=/(deadline|due |due by|interview|schedule|rsvp|reply|respond|action required|please confirm|overdue|by next|before registration)/.test(t);
+var role=ROLE.test(e.f);
+if(act&&(role||/dues|overdue|deadline/.test(t)))return{cat:"action",why:"Asks you to do something with a time limit"+(role?" and comes from a professor, advisor or recruiter.":".")};
+if(role)return{cat:"important",why:"Sent by a professor, advisor, recruiter or supervisor, so it is likely worth reading."};
+if(/club|meeting|society|sorority|fundraiser|event|org/.test(t))return{cat:"clubs",why:"Mentions a club, meeting or event."};
+return{cat:"news",why:"No urgent or personal signals, so it was filed as low priority."};
+}
+function reply(e,cat){
+var n=nameOf(e.f).split(" ")[0],t=(e.s+" "+e.b).toLowerCase(),body;
+if(cat==="junk")return"(No reply needed. Consider reporting this message as spam.)";
+if(/interview|availability/.test(t))body="Thank you for the invitation. I would be glad to interview. I am available Tuesday and Thursday afternoons this week. Please let me know what works best for you.";
+else if(/dues/.test(t))body="Thanks for the reminder. I will pay my dues online this week and confirm once it is done.";
+else if(/deadline|submit/.test(t))body="Thank you for the update. I saw the new deadline and will submit on time.";
+else if(/advising|advisor|book a/.test(t))body="Thank you for reaching out. I would like to meet before registration opens. I am free Monday or Wednesday after 2pm.";
+else if(/rsvp|meeting/.test(t))body="Thanks for the invite. I will be there. Please count me in.";
+else if(/forms|onboarding/.test(t))body="Thanks for the details. I will complete the forms by the deadline and reach out if I have questions.";
+else body="Thank you for the message. I will review this and follow up if needed.";
+return"Hi "+n+",\n\n"+body+"\n\nBest,\nMaya";
+}
+function render(){
+var data=emails.map(function(e,i){var c=classify(e);return{e:e,i:i,cat:c.cat,why:c.why}});
+var order=["action","important","clubs","news","junk"];
+var counts={all:data.length};order.forEach(function(k){counts[k]=data.filter(function(d){return d.cat===k}).length});
+var tabs=[["all","All"]].concat(order.map(function(k){return[k,CATS[k].n]}));tabs.push(["contacts","⭐ Contacts"]);
+document.getElementById("tabs").innerHTML=tabs.map(function(t){return'<button class="tab'+(view===t[0]?" on":"")+'" data-v="'+t[0]+'">'+t[1]+(counts[t[0]]!==undefined?" ("+counts[t[0]]+")":"")+"</button>"}).join("");
+var rows;
+if(view==="contacts"){
+var by={};data.forEach(function(d){var s=sender(d.e.f);by[s]=by[s]||[];by[s].push(d)});
+rows=Object.keys(by).filter(function(s){return by[s].length>1&&by[s][0].cat!=="junk"&&by[s][0].cat!=="news"}).map(function(s){return by[s][by[s].length-1]});
+}else rows=data.filter(function(d){return view==="all"||d.cat===view}).sort(function(a,b){return order.indexOf(a.cat)-order.indexOf(b.cat)});
+document.getElementById("list").innerHTML=rows.length?rows.map(function(d){
+return'<div class="item'+(sel===d.i?" sel":"")+'" data-i="'+d.i+'"><div class="dot" style="background:'+CATS[d.cat].c+'"></div><div><b>'+esc(nameOf(d.e.f))+'</b><span>'+esc(d.e.s)+"</span></div></div>"}).join(""):'<div class="empty">Nothing here yet.</div>';
+if(view==="contacts"&&rows.length)document.getElementById("list").insertAdjacentHTML("afterbegin",'<div class="note" style="padding:8px 14px">Latest message from people who email you often.</div>');
+detail(data);
+}
+function esc(s){return s.replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function detail(data){
+var el=document.getElementById("detail");
+if(sel===null||!data[sel]){el.innerHTML='<div class="empty">Select an email to see details.</div>';return}
+var d=data[sel],e=d.e;
+el.innerHTML='<span class="badge" style="background:'+CATS[d.cat].c+'">'+CATS[d.cat].n+'</span><h2>'+esc(e.s)+'</h2><div class="meta">From '+esc(e.f)+'</div><div class="body">'+esc(e.b)+'</div><div class="why"><b>Why:</b> '+esc(d.why)+'</div>'+
+'<label>Wrong category? Move it</label><select id="mv">'+Object.keys(CATS).map(function(k){return'<option value="'+k+'"'+(k===d.cat?" selected":"")+">"+CATS[k].n+"</option>"}).join("")+'</select><div class="note">The organizer remembers this for future emails from the same sender.</div>'+
+'<label>Suggested reply (edit before sending)</label><textarea id="rp">'+esc(reply(e,d.cat))+'</textarea><button class="btn alt" id="cp">Copy reply</button>';
+document.getElementById("mv").onchange=function(){memory[sender(e.f)]=this.value;render()};
+document.getElementById("cp").onclick=function(){var t=document.getElementById("rp");t.select();try{document.execCommand("copy");this.textContent="Copied ✓"}catch(x){}};
+}
+document.addEventListener("click",function(ev){
+var t=ev.target.closest(".tab");if(t){view=t.dataset.v;sel=null;render();return}
+var it=ev.target.closest(".item");if(it){sel=+it.dataset.i;render()}
+});
+document.getElementById("add").onclick=function(){
+var f=document.getElementById("nf").value.trim(),s=document.getElementById("ns").value.trim(),b=document.getElementById("nb").value.trim();
+if(!f||!s||!b)return;emails.push({f:f,s:s,b:b});sel=emails.length-1;view="all";
+["nf","ns","nb"].forEach(function(i){document.getElementById(i).value=""});render();
+};
+render();
+</script>
+</body>
+</html>
